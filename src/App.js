@@ -4,21 +4,6 @@ import * as Yup from 'yup';
 import logo from './logo.svg';
 import './App.css';
 import UserForm from './UserForm';
-const CustonerSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, 'Too Short!')
-    .max(50, 'Too Long!')
-    .required('Required'),
-  age: Yup.number()
-    .min(0, 'Age Should Be Bigger Than 0!')
-    .max(150, 'Age Should be Less Than 150!')
-    .required('Required'),
-  country: Yup.string()
-    .required('Required'),
-  sex: Yup.string()
-    .required('Required')
-
-});
 
 class App extends React.Component {
   constructor(props) {
@@ -29,13 +14,17 @@ class App extends React.Component {
       age: undefined,
       sex: undefined,
       countries: [],
-      isLoaded: false
+      isLoaded: false,
+      error: {
+        status: undefined,
+        message: undefined,
+        details: []
+      }
     };
 
 
     this.handleChange = this.handleChange.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
-    this.handleAgeChange = this.handleAgeChange.bind(this)
 
   }
   callAPI() {
@@ -45,7 +34,6 @@ class App extends React.Component {
         return result;
       }
       )
-
       .then(res => {
         this.setState({ countries: JSON.parse(res) });
       }
@@ -57,51 +45,46 @@ class App extends React.Component {
   }
   handleChange(event) {
     const target = event.target;
-    const value = target.type === 'checkbox' ? target.checked : target.value;
+    const value = target.value;
     const name = target.name;
+    console.log(target,value,name)
     this.setState({
-      [name]: value
+      [name]: value,
+      isLoaded: false
     });
-  }
-  ageOnChange(e) {
-    const re = /^[0-9\b]+$/;
-    if (e.target.value === '' || re.test(e.target.value)) {
-      this.setState({ value: e.target.age })
-    }
-  };
-  handleAgeChange(evt) {
-    const age = (evt.target.validity.valid) ? evt.target.value : this.state.age;
-
-    this.setState({ age });
   }
 
   async call(data) {
     let response;
 
     await fetch("http://localhost:3004/api/save", {
-      method: 'POST', // *GET, POST, PUT, DELETE, etc.
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-        // 'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify(data) // body data type must match "Content-Type" header
+      body: JSON.stringify(data)
     }).then(res => {
       const result = res.json();
+      console.log('resefe', result)
       return result;
     }
+    ).then(res => {
+      console.log('resss', res.status)
+      if (res.status === undefined) {
+        this.setState({ returnedValue: res.name, isLoaded: true , error:undefined});
+      }else{
+        this.setState({ isLoaded: true, error: { status: res.status, message: res.message, details: res.details } })
+      } 
+      
+      response = res.name;
+
+    }
     )
+      .catch((err) => {
+        this.setState({ isLoaded: true, error: { status: 500, message: 'Failed To Fetch' } })
 
-      .then(res => {
-        console.log('ese', res.name)
-        response = res.name;
-        this.setState({ returnedValue: res.name });
-        this.setState({isLoaded : true})
-        //this.setState({ returnedValue: JSON.parse(res) });
-      }
-      )
-      .catch(err => err);
-
-    return response;
+        console.log('err',err)
+      });
   }
 
   handleSubmit(event) {
@@ -113,9 +96,7 @@ class App extends React.Component {
       country: this.state.country
     };
 
-    const response = this.call(data);
-
-    alert('A name was submitted: ' + response);
+    this.call(data);
     event.preventDefault();
   }
 
@@ -124,15 +105,8 @@ class App extends React.Component {
 
       <div class="container">
 
-        <Formik
-          initialValues={{
-            firstName: '',
-            lastName: '',
-            email: '',
-          }}
-          validationSchema={CustonerSchema}
-        >
-          {({ handleChange, errors, touched }) => (
+        <Formik>
+          {() => (
             <form onSubmit={this.handleSubmit}>
 
               <div class="row">
@@ -140,16 +114,9 @@ class App extends React.Component {
                   <label for="fname">Name</label>
                 </div>
                 <div class="col-75">
-                  <Field placeholder="Your name.." name="name" type="text" onChange={e => {
-
-                    this.setState({ name: e.target.value })
-                    handleChange(e);
-
-                  }
+                  <Field placeholder="Your name.." name="name" type="text" onChange={this.handleChange
                   } />
-                  {errors.name && touched.name ? (
-                    <div>{errors.name}</div>
-                  ) : null}    </div>
+                </div>
               </div>
 
 
@@ -161,13 +128,9 @@ class App extends React.Component {
                   <label for="age">Age</label>
                 </div>
                 <div class="col-75">
-                  <Field placeholder="Age" name="age" type="number" pattern="[0-9]*" onInput={e => {
-                    this.setState({ age: e.target.value })
-                    handleChange(e);
-                  }} value={this.state.age} />
-                  {errors.age && touched.age ? (
-                    <div>{errors.age}</div>
-                  ) : null}
+                  <Field placeholder="Age" name="age" type="number" onChange={this.handleChange
+                  } value={this.state.age} />
+
                 </div>
               </div>
 
@@ -177,18 +140,12 @@ class App extends React.Component {
                   <label for="country">Country</label>
                 </div>
                 <div class="col-75">
-                  <Field component="select" name="country" onChange={e => {
-
-                    this.setState({ country: e.target.value })
-                    handleChange(e);
-
-                  }}>      <option> Select country</option>
+                  <Field component="select" name="country" onChange={this.handleChange}>      
+                    <option default value="null" onChange={this.handleChange}> Select country</option>
 
                     {this.state.countries ? Array.from(this.state.countries).map((country) => <option key={country} value={country}>{country}</option>) : ''}
 
-                  </Field>{errors.country && touched.country ? (
-                    <div>{errors.country}</div>
-                  ) : null}
+                  </Field>
                 </div>
               </div>
 
@@ -201,38 +158,44 @@ class App extends React.Component {
                     type="radio"
                     name="sex"
                     value="Female"
-                    onChange={e => {
-
-                      this.setState({ sex: e.target.value })
-                      handleChange(e);
-
-                    }}
+                    onChange={this.handleChange}
                   />Female
                 <input
                     type="radio"
                     name="sex"
                     value="Male"
-                    onChange={e => {
-
-                      this.setState({ sex: e.target.value })
-                      handleChange(e);
-
-                    }}
+                    onChange={this.handleChange}
                   />Male
                 </div>
               </div>
               <div class="row">
-                <input type="submit" value="Submit" />
+                <input type="button" onClick={this.handleSubmit} value="Submit" />
               </div>
 
 
-              {this.state.isLoaded && 
-              <div> 
-                <h1>Application Complete</h1>
-                <h3>{this.state.returnedValue} Thank you for applying to this usefull goverment service</h3>
-              </div>
+              {this.state.isLoaded && (
+                <div>
+                  {this.state.error ? (
+                    <div>
+                      <div class="row">
+                        {this.state.error.status}-{this.state.error.message}
+                      </div>
+                      <div class="row">
+                        {this.state.error.details && this.state.error.details.map(error =>
+                          <p>{error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                      <div>
+                        <h1>Application Complete</h1>
+                        <h3>{this.state.returnedValue} Thank you for applying to this usefull goverment service</h3>
+                      </div>
+                    )
 
-              }
+
+                  }
+                </div>)}
             </form>
           )}
         </Formik>
